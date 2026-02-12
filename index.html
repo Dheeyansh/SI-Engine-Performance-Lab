@@ -1,0 +1,555 @@
+
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title> SI Engine Performance Lab</title>
+  
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <style>
+  :root{
+      --bg:#0f172a;
+      --card:#1e293b;
+      --accent:#3b82f6;
+      --text:#e2e8f0;
+      --success:#10b981;
+      --danger:#ef4444;
+  }
+  body{
+      font-family:'Segoe UI',sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      margin:0;
+      padding:20px;
+  }
+  .wrapper{
+      max-width:1600px;
+      margin:auto;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:25px;
+  }
+  @media(min-width:1024px){
+      .wrapper{
+          grid-template-columns:450px 1fr;
+      }
+  }
+  .objective-bar{
+      grid-column:span 2;
+      background:linear-gradient(90deg,#1e293b 0%,#3b82f6 100%);
+      border-left:8px solid var(--accent);
+      padding:15px 25px;
+      border-radius:8px;
+      display:flex;
+      align-items:center;
+      gap:20px;
+  }
+  .objective-bar h2{margin:0;color:#fff;}
+  .objective-bar p{
+      margin:0;
+      border-left:2px solid rgba(255,255,255,0.3);
+      padding-left:20px;
+  }
+  .sidebar,.main{display:flex;flex-direction:column;gap:20px;}
+  .card{background:var(--card);border-radius:12px;padding:20px;border:1px solid #334155;}
+  h3{margin-top:0;border-bottom:1px solid #475569;padding-bottom:10px;}
+  .input-row{margin-bottom:12px;}
+  label{
+      display:block;
+      font-size:0.75rem;
+      color:#94a3b8;
+      margin-bottom:4px;
+      text-transform:uppercase;
+      font-weight:bold;
+  }
+  input,select{
+      width:100%;
+      padding:10px;
+      background:#0f172a;
+      border:1px solid #334155;
+      color:white;
+      border-radius:6px;
+  }
+  .btn-run{
+      width:100%;
+      padding:14px;
+      background:var(--accent);
+      border:none;
+      color:white;
+      border-radius:8px;
+      font-weight:bold;
+      cursor:pointer;
+  }
+  .btn-run:hover{background:#2563eb;}
+  .btn-pdf{
+      background:var(--danger);
+      color:white;
+      padding:8px 15px;
+      border:none;
+      border-radius:5px;
+      cursor:pointer;
+  }
+  .btn-pdf:hover{background:#dc2626;}
+  table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:15px;
+  }
+  th,td{
+      border:1px solid #334155;
+      padding:10px;
+      text-align:center;
+  }
+  th{color:var(--accent);}
+  table tbody tr:nth-child(even){ background: rgba(255,255,255,0.05); }
+  table tbody tr:hover{ background: rgba(59,130,246,0.1); }
+  table thead th{ position: sticky; top: 0; background: var(--card); z-index: 1; }
+  
+  .chart-container{height:350px; position: relative;}
+  .analysis-area{
+      line-height:1.7;
+      background:rgba(16,185,129,0.05);
+      border-left:5px solid var(--success);
+      padding:15px;
+      border-radius:8px;
+  }
+  .engine-image{width:100%;border-radius:8px;border:1px solid #374151;background:#000;}
+  .rpm-display{text-align:center;font-family:monospace;font-size:1.2rem;color:var(--success);margin-top:10px;font-weight:bold;}
+  </style>
+  </head>
+  
+  <body>
+  
+  <div class="wrapper">
+  <div class="objective-bar">
+  <h2>🎯 Objective</h2>
+  <p>To determine Brake Power, Mechanical Efficiency, and BSFC of a spark ignition engine using an Eddy Current Dynamometer.</p>
+  </div>
+  
+  <div class="sidebar">
+  
+  <div class="card">
+  <h3>⚙️ Engine Working Animation</h3>
+  <img src="Four-Stroke-Engine-Working-Animation.gif" class="engine-image">
+  <div class="rpm-display">Current Speed: <span id="live-rpm">0</span> RPM</div>
+  </div>
+  
+  <div class="card">
+  <h3>⚙️ Lab Configuration</h3>
+  <div class="input-row">
+  <label>Engine Type</label>
+  <select id="engineType" onchange="syncEngine()">
+  <option value="sedan">1.5L Eco-Boost</option>
+  <option value="turbo" selected>2.0L Performance</option>
+  <option value="v8">6.2L Muscle</option>
+  </select>
+  </div>
+  <div class="input-row">
+  <label>Test Mode</label>
+  <select id="mode">
+  <option value="load_sweep">Constant Speed (Variable Load)</option>
+  <option value="rpm_sweep">Constant Load (Variable Speed)</option>
+  </select>
+  </div>
+  <div class="input-row">
+  <label>Load (kg)</label>
+  <input type="number" id="load" value="30">
+  </div>
+  <div class="input-row">
+  <label>Arm Length (m)</label>
+  <input type="number" id="arm" value="0.35">
+  </div>
+  <div class="input-row">
+  <label>Fuel Rate (kg/hr)</label>
+  <input type="number" id="fuel" value="3.5">
+  </div>
+  <div class="input-row">
+  <label>Indicated Power (kW)</label>
+  <input type="number" id="ip" value="60">
+  </div>
+  <button class="btn-run" onclick="runLabSequence()">START TEST SEQUENCE</button>
+  </div>
+  
+  </div>
+  
+  <div class="main">
+  
+  <div class="card">
+  <h3>📊 Characteristic Curves</h3>
+  <div class="chart-container">
+  <canvas id="perfChart"></canvas>
+  </div>
+  </div>
+  
+  <div id="captureArea">
+  <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+  <h3>Experimental Data Log</h3>
+  <button class="btn-pdf" onclick="exportPDF()">Download Report (PDF)</button>
+  </div>
+  <table id="dataTable">
+  <thead>
+  <tr>
+  <th id="hVar">Load (kg)</th>
+  <th>Torque (Nm)</th>
+  <th>Brake Power (kW)</th>
+  <th>Mech. Eff (%)</th>
+  <th>BSFC (kg/kWh)</th>
+  </tr>
+  </thead>
+  <tbody></tbody>
+  </table>
+  </div>
+  
+  <div class="card">
+  <h3>📊 Result Interpretation</h3>
+  <div id="analysisOutput" class="analysis-area">Awaiting experimental data...</div>
+  </div>
+  </div>
+  
+  </div>
+  </div>
+  
+  <script>
+  let chart;
+  const G = 9.81;
+  
+  let lastResults = {
+      maxBP: 0, maxBP_at: "",
+      minBSFC: Infinity, minBSFC_at: "",
+      maxEff: 0, maxEff_at: "",
+      variableLabel: "",
+      variableUnit: ""
+  };
+  
+  function syncEngine(){
+      const specs = {sedan:55, turbo:120, v8:400};
+      document.getElementById("ip").value = specs[document.getElementById("engineType").value];
+  }
+  
+  async function runLabSequence(){
+      const mode = document.getElementById("mode").value;
+      const loadIn = parseFloat(document.getElementById("load").value) || 0;
+      const arm = parseFloat(document.getElementById("arm").value) || 0.35;
+      const fuel = parseFloat(document.getElementById("fuel").value) || 0;
+      const ipBase = parseFloat(document.getElementById("ip").value) || 0;
+      const liveRpm = document.getElementById("live-rpm");
+      const analysisOutput = document.getElementById("analysisOutput");
+      const hVar = document.getElementById("hVar");
+  
+      document.querySelector("#dataTable tbody").innerHTML = "";
+      if (chart) chart.destroy();
+      chart = null;
+  
+      hVar.textContent = mode === "load_sweep" ? "Load (kg)" : "Speed (RPM)";
+  
+      let labels = [], bpData = [], effData = [], rows = "";
+      let maxBP = 0, minBSFC = Infinity, maxEff = 0;
+      let maxBP_at = "", minBSFC_at = "", maxEff_at = "";
+  
+      const points = mode === "load_sweep" ? [10,20,30,40,50,60] : [1000,2000,3000,4000,5000,6000];
+  
+      for (let p of points) {
+          let n = mode === "load_sweep" ? 3000 : p;
+          let w = mode === "rpm_sweep" ? loadIn : p;
+  
+          liveRpm.innerText = n;
+  
+          let torque = w * G * arm;
+          let bp = (2 * Math.PI * n * torque) / 60000;
+  
+          if (isNaN(bp) || bp < 0) bp = 0;
+          if (isNaN(torque) || torque < 0) torque = 0;
+  
+          let mechEff = ipBase > 0 ? (bp / ipBase) * 100 : 0;
+          let bsfc = bp > 0 ? fuel / bp : 0;
+  
+          if (bp > maxBP) { maxBP = bp; maxBP_at = p; }
+          if (bsfc < minBSFC && bsfc > 0) { minBSFC = bsfc; minBSFC_at = p; }
+          if (mechEff > maxEff) { maxEff = mechEff; maxEff_at = p; }
+  
+          labels.push(mode === "load_sweep" ? `${w} kg` : `${n} RPM`);
+          bpData.push(bp.toFixed(2));
+          effData.push(mechEff.toFixed(1));
+  
+          rows += `<tr>
+              <td>${p}</td>
+              <td>${torque.toFixed(2)}</td>
+              <td>${bp.toFixed(2)}</td>
+              <td>${mechEff.toFixed(1)}</td>
+              <td>${bsfc.toFixed(3)}</td>
+          </tr>`;
+  
+          document.querySelector("#dataTable tbody").innerHTML = rows;
+          updateChart(labels, bpData, effData);
+  
+          await new Promise(r => setTimeout(r, 300));
+      }
+  
+      lastResults.variableLabel = mode === "load_sweep" ? "load" : "engine speed";
+      lastResults.variableUnit = mode === "load_sweep" ? "kg" : "RPM";
+      lastResults.maxBP = maxBP;
+      lastResults.maxBP_at = maxBP_at;
+      lastResults.minBSFC = minBSFC;
+      lastResults.minBSFC_at = minBSFC_at;
+      lastResults.maxEff = maxEff;
+      lastResults.maxEff_at = maxEff_at;
+  
+      const variableLabel = lastResults.variableLabel;
+  
+      analysisOutput.innerHTML = `
+      <strong>Detailed Result Interpretation:</strong><br><br>
+      1. <strong>Maximum Brake Power (BP):</strong> ${maxBP.toFixed(2)} kW at ${maxBP_at} ${variableLabel} (${lastResults.variableUnit}).<br><br>
+      2. <strong>Minimum Brake Specific Fuel Consumption (BSFC):</strong> ${minBSFC.toFixed(3)} kg/kWh at ${minBSFC_at} ${lastResults.variableUnit}.<br><br>
+      3. <strong>Maximum Mechanical Efficiency:</strong> ${maxEff.toFixed(2)}% at ${maxEff_at} ${lastResults.variableUnit}.<br><br>
+      4. Low operating conditions result in less torque and power.<br><br>
+      5. High operating conditions can reduce efficiency due to friction and thermal losses.<br><br>
+      Overall, the characteristic curves represent practical engine performance and efficiency.
+      `;
+  }
+  
+  function updateChart(labels, bpData, effData){
+      const ctx = document.getElementById('perfChart').getContext('2d');
+      const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+      gradient.addColorStop(0, 'rgba(59,130,246,0.3)');
+      gradient.addColorStop(1, 'rgba(59,130,246,0)');
+  
+      if (chart) {
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = bpData;
+          chart.data.datasets[1].data = effData;
+          chart.update();
+          return;
+      }
+  
+      chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+              labels: labels,
+              datasets: [
+                  {label: 'BP (kW)', data: bpData, borderColor: '#3b82f6', backgroundColor: gradient, tension: 0.3, fill: true, pointRadius: 5},
+                  {label: 'Efficiency (%)', data: effData, borderColor: '#10b981', yAxisID: 'y1', tension: 0.3, fill: false, pointRadius: 5}
+              ]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {tooltip: {mode: 'index', intersect: false}},
+              scales: {
+                  y: {title: {display: true, text: 'Power (kW)'}},
+                  y1: {position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'Efficiency (%)'}}
+              }
+          }
+      });
+  }
+  
+  function exportPDF(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+    });
+
+    const engineType = document.getElementById("engineType").selectedOptions[0].text;
+    const modeText = document.getElementById("mode").value === "load_sweep" ? "Constant Speed (Variable Load)" : "Constant Load (Variable Speed)";
+    const rows = document.querySelectorAll("#dataTable tbody tr");
+
+    if (rows.length === 0) {
+        alert("Please run the test sequence first.");
+        return;
+    }
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-GB");
+
+    // ────────────────────────────────────────────────
+    //               PROFESSIONAL HEADER (Page 1)
+    // ────────────────────────────────────────────────
+    doc.setFont("times", "bold");
+    doc.setFontSize(16);
+    doc.text("DELHI SKILL AND ENTREPRENEURSHIP UNIVERSITY", 105, 20, { align: "center" });
+
+    doc.setFontSize(11);
+    doc.setFont("times", "normal");
+    doc.text("Okhla-II Campus, New Delhi", 105, 27, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.setFont("times", "bold");
+    doc.text("I.C. ENGINES LABORATORY REPORT", 105, 40, { align: "center" });
+
+    doc.setLineWidth(0.6);
+    doc.line(20, 45, 190, 45);
+
+    let y = 55;
+
+    // Metadata
+    doc.setFont("times", "normal");
+    doc.setFontSize(11);
+    doc.text(`Date: ${formattedDate}`, 20, y);
+    doc.text("Subject: Internal Combustion Engines Lab", 190, y, { align: "right" });
+    y += 8;
+
+    doc.text(`Engine Type: ${engineType}`, 20, y);
+    doc.text(`Test Mode: ${modeText}`, 190, y, { align: "right" });
+    y += 12;
+
+    // 1. Objective
+    doc.setFont("times", "bold");
+    doc.setFontSize(12);
+    doc.text("1. OBJECTIVE", 20, y);
+    y += 7;
+    doc.setFont("times", "normal");
+    doc.setFontSize(11);
+    doc.text("To determine Brake Power, Mechanical Efficiency and Brake Specific Fuel Consumption (BSFC) of a Spark Ignition Engine using an Eddy Current Dynamometer.", 25, y, { maxWidth: 165 });
+    y += 18;
+
+    // 2. Theory & Formulae
+    doc.setFont("times", "bold");
+    doc.text("2. THEORY & FORMULAE", 20, y);
+    y += 7;
+    doc.setFont("times", "normal");
+    const formulae = [
+        "• Torque (T) = W × 9.81 × r (Nm)",
+        "• Brake Power (BP) = (2πNT) / 60,000 (kW)",
+        "• BSFC = Fuel consumption rate / BP (kg/kWh)",
+        "• Mechanical Efficiency (η_mech) = (BP / IP) × 100 (%)"
+    ];
+    formulae.forEach(line => {
+        doc.text(line, 25, y);
+        y += 7;
+    });
+    y += 8;
+
+    // 3. Observation Table
+    doc.setFont("times", "bold");
+    doc.text("3. OBSERVATION TABLE", 20, y);
+    y += 7;
+
+    const colWidth = 34;
+    const headers = ["Variable", "Torque (Nm)", "BP (kW)", "Eff (%)", "BSFC"];
+    doc.setFont("times", "bold");
+    doc.setFontSize(10);
+    doc.rect(20, y, 170, 10);
+    headers.forEach((h, i) => {
+        doc.text(h, 20 + (i * colWidth) + 3, y + 7);
+    });
+    y += 10;
+
+    doc.setFont("times", "normal");
+    doc.setFontSize(10);
+    rows.forEach(r => {
+        const cells = r.querySelectorAll("td");
+        doc.rect(20, y, 170, 8);
+        cells.forEach((c, i) => {
+            doc.text(c.innerText, 20 + (i * colWidth) + 3, y + 5.5);
+        });
+        y += 8;
+        if (y > 260) {
+            doc.addPage();
+            y = 25;
+        }
+    });
+
+    // 4. Performance Curves
+    if (chart) {
+        if (y > 200) {
+            doc.addPage();
+            y = 25;
+        }
+        y += 8;
+        doc.setFont("times", "bold");
+        doc.setFontSize(12);
+        doc.text("4. PERFORMANCE CURVES", 20, y);
+        y += 8;
+
+        const canvas = document.getElementById('perfChart');
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.fillStyle = 'white';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.drawImage(canvas, 0, 0);
+
+        const chartImage = tempCanvas.toDataURL('image/png');
+        const imgWidth = 170;
+        const imgHeight = (tempCanvas.height / tempCanvas.width) * imgWidth;
+        doc.addImage(chartImage, 'PNG', 20, y, imgWidth, imgHeight);
+        y += imgHeight + 12;
+    }
+
+    // 5. Result Interpretation
+    if (y > 180) {
+        doc.addPage();
+        y = 25;
+    }
+    y += 5;
+    doc.setFont("times", "bold");
+    doc.setFontSize(12);
+    doc.text("5. RESULT INTERPRETATION", 20, y);
+    y += 8;
+    doc.setFont("times", "normal");
+    doc.setFontSize(11);
+
+    const interpretationItems = [
+        `1. Maximum Brake Power (BP): The engine achieved a maximum BP of ${lastResults.maxBP.toFixed(2)} kW at ${lastResults.maxBP_at} ${lastResults.variableLabel} (${lastResults.variableUnit}). This indicates the engine's peak output capability under these operating conditions.`,
+        `2. Minimum Brake Specific Fuel Consumption (BSFC): The minimum BSFC recorded was ${lastResults.minBSFC.toFixed(3)} kg/kWh at ${lastResults.minBSFC_at} ${lastResults.variableUnit}, representing the point of optimal fuel efficiency and combustion.`,
+        `3. Maximum Mechanical Efficiency: The engine exhibited a maximum mechanical efficiency of ${lastResults.maxEff.toFixed(2)}% at ${lastResults.maxEff_at} ${lastResults.variableUnit}, indicating reduced frictional and mechanical losses at this point.`,
+        `4. Low Operating Conditions: At lower loads or speeds, the engine produces less torque, which limits the power output and overall efficiency.`,
+        `5. High Operating Conditions: At very high loads or speeds, a slight drop in efficiency is observed due to increased frictional and thermal losses.`,
+        `6. Overall Analysis: The characteristic curves obtained closely represent the practical performance behavior of a spark ignition engine, providing valuable insights into operational efficiency, fuel consumption, and power characteristics.`
+    ];
+
+    interpretationItems.forEach(item => {
+        const splitLines = doc.splitTextToSize(item, 165);
+        doc.text(splitLines, 25, y, { align: "justify", lineHeightFactor: 1.4 });
+        y += (splitLines.length * 6) + 2;
+        if (y > 240) {  // Leave space for footer
+            doc.addPage();
+            y = 25;
+        }
+    });
+
+    // ────────────────────────────────────────────────
+    //               PAGE FOOTER (only on page 2+)
+    // ────────────────────────────────────────────────
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+
+        // Page number (center)
+        doc.setFontSize(10);
+        doc.setFont("times", "italic");
+        doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: "center" });
+
+        // Guidance statement (bottom right) - only on page 2 and beyond
+        if (i >= 2) {
+            doc.setFont("times", "normal");
+            doc.setFontSize(10);
+            const guidance = [
+                "Performed under the guidance of",
+                "Dr. Narayan Agrawal",
+                "Associate Professor",
+                "Dept. of Mechanical Engineering",
+                "DSEU, OKHLA 2 CAMPUS"
+            ];
+            let yPos = 270;
+            guidance.forEach(line => {
+                doc.text(line, 190, yPos, { align: "right" });
+                yPos += 5;
+            });
+        }
+    }
+
+    doc.save("DSEU_SI_Engine_Lab_Report.pdf");
+}
+  syncEngine();
+  </script>
+  
+  </body>
+  </html>
